@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Confirmed - Fishbook</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #007AFF;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            max-width: 400px;
+            width: 100%;
+        }
+        
+        .success-icon {
+            width: 80px;
+            height: 80px;
+            background: #007AFF;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 30px;
+            color: white;
+            font-size: 40px;
+            box-shadow: 0 8px 20px rgba(0, 122, 255, 0.3);
+        }
+        
+        h1 {
+            color: #1D1D1F;
+            margin-bottom: 20px;
+            font-size: 28px;
+            font-weight: 700;
+        }
+        
+        p {
+            color: #86868B;
+            line-height: 1.6;
+            margin-bottom: 30px;
+            font-size: 16px;
+            font-weight: 400;
+        }
+        
+        .open-app-btn {
+            background: #007AFF;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 15px rgba(0, 122, 255, 0.3);
+        }
+        
+        .open-app-btn:hover {
+            transform: translateY(-2px);
+            background: #0056CC;
+        }
+        
+        .countdown {
+            color: #86868B;
+            font-size: 14px;
+            margin-top: 20px;
+            font-weight: 400;
+        }
+        
+        @media (max-width: 480px) {
+            .container {
+                padding: 30px 20px;
+            }
+            
+            h1 {
+                font-size: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="success-icon">✓</div>
+        <h1>Email Confirmed!</h1>
+        <p>Your email has been successfully verified. You can now enjoy all features of Fishbook!</p>
+        
+        <a href="fishapp://auth-callback" class="open-app-btn" id="openAppBtn">Open Fishbook App</a>
+        
+        <p class="countdown" id="countdown">Automatically opening app in <span id="timer">5</span> seconds...</p>
+    </div>
+
+    <script>
+        // Auto-redirect to app after 5 seconds
+        let timeLeft = 5;
+        const timerElement = document.getElementById('timer');
+        const countdownElement = document.getElementById('countdown');
+        
+        function updateTimer() {
+            timerElement.textContent = timeLeft;
+            timeLeft--;
+            
+            if (timeLeft < 0) {
+                // Try to open the app
+                window.location.href = 'fishapp://auth-callback';
+                countdownElement.textContent = 'Opening Fishbook app...';
+            }
+        }
+        
+        // Update timer every second
+        setInterval(updateTimer, 1000);
+        
+        // Handle manual button click
+        document.getElementById('openAppBtn').addEventListener('click', function(e) {
+            e.preventDefault();
+            window.location.href = 'fishapp://auth-callback';
+        });
+        
+        // Try to parse URL parameters and redirect with them
+        const urlParams = new URLSearchParams(window.location.search);
+        const accessToken = urlParams.get('access_token');
+        const refreshToken = urlParams.get('refresh_token');
+        
+        if (accessToken || refreshToken) {
+            // Construct the deep link with parameters
+            let deepLink = 'fishapp://auth-callback';
+            if (window.location.search) {
+                deepLink += window.location.search;
+            }
+            
+            // Update the button and auto-redirect links
+            document.getElementById('openAppBtn').href = deepLink;
+            
+            // Update auto-redirect
+            setTimeout(() => {
+                window.location.href = deepLink;
+            }, 5000);
+        }
+    </script>
+</body>
+</html> 
