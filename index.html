@@ -110,30 +110,7 @@
     </div>
 
     <script>
-        // Auto-redirect to app after 5 seconds
-        let timeLeft = 5;
-        
-        function updateTimer() {
-            const timerElement = document.getElementById('timer');
-            const countdownElement = document.getElementById('countdown');
-            
-            if (timerElement) {
-                timerElement.textContent = timeLeft;
-            }
-            
-            timeLeft--;
-            
-            if (timeLeft < 0) {
-                if (countdownElement) {
-                    countdownElement.textContent = 'Opening Fishbook app...';
-                }
-                // The redirect will be handled by the token processing code above
-                clearInterval(timerInterval);
-            }
-        }
-        
-        // Update timer every second
-        const timerInterval = setInterval(updateTimer, 1000);
+        // Timer will be started by the verification process
         
         // Handle manual button click
         document.getElementById('openAppBtn').addEventListener('click', function(e) {
@@ -151,14 +128,97 @@
                 access_token: urlParams.get('access_token') || hashParams.get('access_token'),
                 refresh_token: urlParams.get('refresh_token') || hashParams.get('refresh_token'),
                 token_type: urlParams.get('token_type') || hashParams.get('token_type'),
-                type: urlParams.get('type') || hashParams.get('type')
+                type: urlParams.get('type') || hashParams.get('type'),
+                token: urlParams.get('token') || hashParams.get('token')
             };
+        }
+        
+        // Function to verify email with Supabase
+        async function verifyEmailWithSupabase(token, type) {
+            try {
+                console.log('Attempting to verify email with token:', token);
+                
+                const response = await fetch('https://cpdeswncnyzrtptbthhm.supabase.co/auth/v1/verify', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNwZGVzd25jbnl6cnRwdGJ0aGhtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTEwNDE4OTUsImV4cCI6MjA2NjYxNzg5NX0.yCg2IHwoJ2f0uxU04SQRLrG4Y5fvShzFtw3ypeGHSnU'
+                    },
+                    body: JSON.stringify({
+                        token: token,
+                        type: type
+                    })
+                });
+                
+                const data = await response.json();
+                console.log('Verification response:', data);
+                
+                if (response.ok && data.access_token) {
+                    console.log('✅ Email verification successful!');
+                    return data;
+                } else {
+                    console.error('❌ Email verification failed:', data);
+                    return null;
+                }
+            } catch (error) {
+                console.error('❌ Error during verification:', error);
+                return null;
+            }
         }
         
         const tokens = getUrlParams();
         
-        // Check if this is an authentication callback
-        if (tokens.access_token || tokens.type) {
+        // Check if this is an email verification (has token but no access_token)
+        if (tokens.token && tokens.type && !tokens.access_token) {
+            console.log('Email verification token found, processing...');
+            
+            // Show processing message
+            document.getElementById('countdown').textContent = 'Confirming your email...';
+            
+            // Verify the email with Supabase
+            verifyEmailWithSupabase(tokens.token, tokens.type).then(verificationResult => {
+                if (verificationResult && verificationResult.access_token) {
+                    console.log('✅ Email verification successful!');
+                    console.log('Email confirmation successful - account is now confirmed in Supabase');
+                    
+                    // Now use the verification result tokens for deep link
+                    const verifiedTokens = {
+                        access_token: verificationResult.access_token,
+                        refresh_token: verificationResult.refresh_token,
+                        token_type: verificationResult.token_type || 'bearer',
+                        type: 'signup'
+                    };
+                    
+                    // Construct the deep link with verified tokens
+                    let deepLink = 'fishapp://auth-callback';
+                    const params = new URLSearchParams();
+                    if (verifiedTokens.access_token) params.set('access_token', verifiedTokens.access_token);
+                    if (verifiedTokens.refresh_token) params.set('refresh_token', verifiedTokens.refresh_token);
+                    if (verifiedTokens.token_type) params.set('token_type', verifiedTokens.token_type);
+                    if (verifiedTokens.type) params.set('type', verifiedTokens.type);
+                    
+                    if (params.toString()) {
+                        deepLink += '?' + params.toString();
+                    }
+                    
+                    console.log('Deep link constructed with verified tokens:', deepLink);
+                    
+                    // Update the button link
+                    document.getElementById('openAppBtn').href = deepLink;
+                    
+                    // Update countdown text to show successful confirmation
+                    document.getElementById('countdown').innerHTML = 'Email confirmed successfully! Opening app in <span id="timer">5</span> seconds...';
+                    
+                    // Start the countdown timer
+                    startCountdownTimer(deepLink);
+                } else {
+                    console.error('❌ Email verification failed');
+                    document.getElementById('countdown').textContent = 'Email verification failed. Please try again or contact support.';
+                }
+            });
+        }
+        // Check if this is already an authenticated callback (has access_token)
+        else if (tokens.access_token || tokens.type) {
             console.log('Authentication tokens found:', tokens);
             console.log('Email confirmation successful - account is now confirmed in Supabase');
             
@@ -181,18 +241,36 @@
             // Update the button link
             document.getElementById('openAppBtn').href = deepLink;
             
-            // Update auto-redirect with the complete deep link
-            setTimeout(() => {
-                console.log('Redirecting to app with tokens...');
-                window.location.href = deepLink;
-            }, 5000);
-            
             // Update countdown text to show successful confirmation
             document.getElementById('countdown').innerHTML = 'Email confirmed successfully! Opening app in <span id="timer">5</span> seconds...';
+            
+            // Start the countdown timer
+            startCountdownTimer(deepLink);
         } else {
             // No tokens found - this might be a direct visit to the page
             console.log('No authentication tokens found');
             document.getElementById('countdown').textContent = 'This page is for email confirmation. Please use the link from your email.';
+        }
+        
+        // Countdown timer function
+        function startCountdownTimer(redirectUrl) {
+            let timeLeft = 5;
+            
+            function updateTimer() {
+                const timerElement = document.getElementById('timer');
+                if (timerElement) {
+                    timerElement.textContent = timeLeft;
+                }
+                timeLeft--;
+                
+                if (timeLeft < 0) {
+                    console.log('Redirecting to app with tokens...');
+                    window.location.href = redirectUrl;
+                    clearInterval(timerInterval);
+                }
+            }
+            
+            const timerInterval = setInterval(updateTimer, 1000);
         }
     </script>
 </body>
