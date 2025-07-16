@@ -168,6 +168,12 @@
         
         const tokens = getUrlParams();
         
+        // Debug: Log all URL info
+        console.log('Current URL:', window.location.href);
+        console.log('URL search params:', window.location.search);
+        console.log('URL hash:', window.location.hash);
+        console.log('Parsed tokens:', tokens);
+        
         // Check if this is an email verification (has token but no access_token)
         if (tokens.token && tokens.type && !tokens.access_token) {
             console.log('Email verification token found, processing...');
