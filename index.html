@@ -112,22 +112,28 @@
     <script>
         // Auto-redirect to app after 5 seconds
         let timeLeft = 5;
-        const timerElement = document.getElementById('timer');
-        const countdownElement = document.getElementById('countdown');
         
         function updateTimer() {
-            timerElement.textContent = timeLeft;
+            const timerElement = document.getElementById('timer');
+            const countdownElement = document.getElementById('countdown');
+            
+            if (timerElement) {
+                timerElement.textContent = timeLeft;
+            }
+            
             timeLeft--;
             
             if (timeLeft < 0) {
-                // Try to open the app
-                window.location.href = 'fishapp://auth-callback';
-                countdownElement.textContent = 'Opening Fishbook app...';
+                if (countdownElement) {
+                    countdownElement.textContent = 'Opening Fishbook app...';
+                }
+                // The redirect will be handled by the token processing code above
+                clearInterval(timerInterval);
             }
         }
         
         // Update timer every second
-        setInterval(updateTimer, 1000);
+        const timerInterval = setInterval(updateTimer, 1000);
         
         // Handle manual button click
         document.getElementById('openAppBtn').addEventListener('click', function(e) {
@@ -135,25 +141,58 @@
             window.location.href = 'fishapp://auth-callback';
         });
         
-        // Try to parse URL parameters and redirect with them
-        const urlParams = new URLSearchParams(window.location.search);
-        const accessToken = urlParams.get('access_token');
-        const refreshToken = urlParams.get('refresh_token');
+        // Parse URL parameters for authentication tokens
+        function getUrlParams() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const hashParams = new URLSearchParams(window.location.hash.substring(1));
+            
+            // Check both URL search params and hash params (Supabase can use either)
+            return {
+                access_token: urlParams.get('access_token') || hashParams.get('access_token'),
+                refresh_token: urlParams.get('refresh_token') || hashParams.get('refresh_token'),
+                token_type: urlParams.get('token_type') || hashParams.get('token_type'),
+                type: urlParams.get('type') || hashParams.get('type')
+            };
+        }
         
-        if (accessToken || refreshToken) {
-            // Construct the deep link with parameters
+        const tokens = getUrlParams();
+        
+        // Check if this is an authentication callback
+        if (tokens.access_token || tokens.type) {
+            console.log('Authentication tokens found:', tokens);
+            console.log('Email confirmation successful - account is now confirmed in Supabase');
+            
+            // Construct the deep link with all parameters
             let deepLink = 'fishapp://auth-callback';
-            if (window.location.search) {
-                deepLink += window.location.search;
+            
+            // Build query string with tokens
+            const params = new URLSearchParams();
+            if (tokens.access_token) params.set('access_token', tokens.access_token);
+            if (tokens.refresh_token) params.set('refresh_token', tokens.refresh_token);
+            if (tokens.token_type) params.set('token_type', tokens.token_type);
+            if (tokens.type) params.set('type', tokens.type);
+            
+            if (params.toString()) {
+                deepLink += '?' + params.toString();
             }
             
-            // Update the button and auto-redirect links
+            console.log('Deep link constructed:', deepLink);
+            
+            // Update the button link
             document.getElementById('openAppBtn').href = deepLink;
             
-            // Update auto-redirect
+            // Update auto-redirect with the complete deep link
             setTimeout(() => {
+                console.log('Redirecting to app with tokens...');
                 window.location.href = deepLink;
             }, 5000);
+            
+            // Update countdown text to show successful confirmation
+            document.getElementById('countdown').innerHTML = 'Email confirmed successfully! Opening app in <span id="timer">5</span> seconds...';
+        } else {
+            // No tokens found - this might be a direct visit to the page
+            console.log('No authentication tokens found');
+            document.getElementById('countdown').textContent = 'This page is for email confirmation. Please use the link from your email.';
         }
     </script>
 </body>
